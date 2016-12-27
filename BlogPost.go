@@ -2,43 +2,32 @@ package main
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"database/sql"
 	"fmt"
 	"github.com/kataras/iris"
+	"strings"
 )
 
-
-
-const BLOGPOST  = "blog_post"
+const BLOG_POST string  = "blog_post"
 
 type BlogModel struct {
-	id int `json:"id"`
-	title string `json:"title"`
-	article string `json:"article"`
+	Id int `json:"id"`
+	Title string `json:"title"`
+	Article string `json:"article"`
 }
-func connectDB() *sql.DB{
-	db, err := sql.Open("mysql", "root@tcp(127.0.0.1:3306)/blog")
-	checkErr(err)
-	return db
-}
-func checkErr(err error) {
-	if err != nil {
-		fmt.Print(err)
-		panic(err)
-	}
-}
+
 func allPost(ctx *iris.Context){
+
 	var db = connectDB()
 	defer db.Close()
 
-	rows, err := db.Query("SELECT id,article,title FROM blog_post")
+	rows, err := db.Query("SELECT id,article,title FROM "+BLOG_POST)
 	checkErr(err)
 	defer rows.Close()
 
 	var result []BlogModel
 	for rows.Next() {
 		var model = BlogModel{}
-		var err = rows.Scan(&model.id,&model.article,&model.title)
+		var err = rows.Scan(&model.Id,&model.Title,&model.Article)
 		checkErr(err)
 		result = append(result,model)
 	}
@@ -48,5 +37,30 @@ func allPost(ctx *iris.Context){
 		panic(err)
 	}
 
-	ctx.JSON(iris.StatusOK,BlogModel{id:1,article:"aaa",title:"bbbb"})
+	ctx.JSON(iris.StatusOK, iris.Map{"status":true, "message":BaseMessage{Devel:"success", Prod:"success"},"count":len(result), "content":result})
+}
+
+func detailPost(ctx *iris.Context) {
+	id,err := ctx.ParamInt("idblog")
+
+	if err != nil {
+		ctx.Redirect("/blog/all",iris.StatusOK)
+	}else {
+		var db = connectDB()
+		defer db.Close()
+
+		var result BlogModel
+
+		var err = db.QueryRow("SELECT id,article,title FROM "+BLOG_POST+" where id = ?",id).Scan(&result.Id, &result.Title,&result.Article)
+		if err != nil {
+			fmt.Println(err.Error())
+			if strings.Contains(err.Error(),"no rows") {
+				ctx.JSON(iris.StatusNotFound, iris.Map{"status":true, "message":BaseMessage{Devel:err.Error(), Prod:"Data tidak ditemukan"}})
+			}else{
+				ctx.JSON(iris.StatusInternalServerError, iris.Map{"status":true, "message":BaseMessage{Devel:err.Error(), Prod:"Data tidak ditemukan"}})
+			}
+		}else{
+			ctx.JSON(iris.StatusOK, iris.Map{"status":true, "message":BaseMessage{Devel:"success", Prod:"success"}, "content":result})
+		}
+	}
 }

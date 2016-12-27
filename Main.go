@@ -10,10 +10,13 @@ func main() {
 	api.Get("/", func(ctx *iris.Context) {
 		ctx.Write("Hello from the server")
 	})
-	api.Get("/mypath", func(ctx *iris.Context) {
-		ctx.Write("Hello from the server on path /mypath")
-	})
-	api.Get("/blog",allPost)
+
+	//route for post
+	blog := api.Party("/blog")
+	blog.Get("/all",allPost)
+	blog.Get("/detail/:idblog",detailPost)
+
+
 
 	api.Build()
 	fsrv := &fasthttp.Server{Handler: api.Router}
